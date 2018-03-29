@@ -177,7 +177,7 @@ BayesClusternoNLP_onlySA2ds_earlystop <- function(dataMatrix1, dataMatrix2, nPco
     
     
     
-    logposterior[i] <- logposterior_BC_DI_error2ds(dataMatrix1, dataMatrix2,  nPcomponents, z, Cind[,i], clustersWithPoints, W1, W2, sigma2.1, sigma2.2, C.1, C.2, length(clustersWithPoints), mean.ppca[clustersWithPoints,],  alpha, nClPoints[clustersWithPoints])
+    logposterior[i] <- logposterior_BC_DI_2(dataMatrix1, dataMatrix2,  nPcomponents, z, Cind[,i], clustersWithPoints, W1, W2, sigma2.1, sigma2.2, C.1, C.2, length(clustersWithPoints), mean.ppca[clustersWithPoints,],  alpha, nClPoints[clustersWithPoints])
     if (logposterior[i]>= max.logposterior){
       max.logposterior <- logposterior[i]
       max.partition    <- Cind[,i]
