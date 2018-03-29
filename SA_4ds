@@ -1,0 +1,114 @@
+
+# noise proposal eps1
+proposalNoise1 <- function(noiseSigma21){
+  add.noise <- rnorm(1, mean=0, sd = 0.001)
+  return(add.noise+noiseSigma21)
+  
+}
+
+# noise proposal eps1
+proposalNoise2 <- function(noiseSigma22){
+  add.noise <- rnorm(1, mean=0, sd = 0.001)
+  return(add.noise+noiseSigma22)
+  
+}
+
+
+# noise proposal eps1
+proposalNoise3 <- function(noiseSigma23){
+  add.noise <- rnorm(1, mean=0, sd = 0.001)
+  return(add.noise+noiseSigma23)
+  
+}
+
+# latent variables proposal
+proposalZs <- function(latentvar){
+  random.noise <- rmvn(nrow(latentvar), rep(0,ncol(latentvar)), diag(0.001, ncol(latentvar)))
+  return(latentvar+random.noise)
+}
+
+#offset proposal
+proposalOffsets <- function(offset){
+  propOffsets <- list()
+  for (i in 1:length(offset)){
+    random.noise    <- rmvnorm(1, rep(0,length(offset[[i]])), diag(0.01,length(offset[[i]])))
+    propOffsets[[i]]<- offset[[i]] + random.noise
+  }
+  return(propOffsets)
+}
+
+# cat loadings proposal
+proposalWds <- function(Wloadings){
+  propWds <- list()
+  for (i in 1:length(Wloadings)){
+    random.noise <- matrix(runif(prod(dim(Wloadings[[i]])), min = -0.0001, max = 0.0001), nrow = nrow(Wloadings[[i]]), ncol = ncol(Wloadings[[i]]))
+    propWds[[i]] <- Wloadings[[i]] + random.noise
+  }
+  return(propWds)
+}
+
+# getting W from dataMatrix1, and latent z using least squares
+gettingWls <- function(z.mat, dataMatrix){
+  z.prod <- t(z.mat)%*%z.mat
+  z.inv  <- solve(z.prod, tol = 1e-38)
+  
+  # getting the estimate for W
+  W <- t(dataMatrix)%*%z.mat%*%t(z.inv)
+}
+
+
+# 
+MH_cont_SA4ds<- function(z.s, current_t, dataMatrix1, dataMatrix2, dataMatrix3, dataMatrix4, nPcomponents, nCategories, Cind_i, ClustersWithPoints, W.m1, W.m2, W.m3, W.ds, sigma2.1, sigma2.2, sigma2.3, mu.ds, C.1, C.2, C.3, Nclusters, meanClust, alpha,nClPoints){  
+  propNoise1   <- proposalNoise1(sigma2.1)             # get the proposal  for the noise sigma2.1
+  propNoise2   <- proposalNoise2(sigma2.2)             # get the proposal  for the noise sigma2.2 
+  propNoise3   <- proposalNoise3(sigma2.3)
+  propOffsets  <- proposalOffsets(mu.ds)
+  propZ        <- proposalZs(z.s)                      # get the proposals for the latent variables
+  propW1       <- gettingWls(z.s, dataMatrix1)
+  propW2       <- gettingWls(z.s, dataMatrix2)
+  propW3       <- gettingWls(z.s, dataMatrix3)
+  propWds      <- proposalWds(W.ds)
+  propMeans    <- matrix(data = NA, nrow = Nclusters, ncol = nPcomponents)
+
+ 
+  for (i in 1:Nclusters){
+    propMeans[i,]   <- colMeans(as.matrix(propZ[which(Cind_i==ClustersWithPoints[i]),]))
+  }
+ 
+  nFeatures1   <- ncol(dataMatrix1)
+  nFeatures2   <- ncol(dataMatrix2)
+  
+ 
+  # the probability of a move
+  prob     = exp((logposterior_BC_DI_4ds(dataMatrix1, dataMatrix2, dataMatrix3, dataMatrix4, nPcomponents, nCategories, propZ,Cind_i, ClustersWithPoints, propW1, propW2, propW3, propWds, propNoise1, propNoise2, propNoise3, propOffsets, C.1, C.2, C.3, Nclusters, propMeans, alpha, nClPoints)
+                  -logposterior_BC_DI_4ds(dataMatrix1, dataMatrix2, dataMatrix3, dataMatrix4, nPcomponents, nCategories, z.s, Cind_i, ClustersWithPoints, W.m1, W.m2, W.m3, W.ds,  sigma2.1, sigma2.2, sigma2.3, mu.ds, C.1, C.2, C.3,  Nclusters, meanClust, alpha, nClPoints))/current_t) # change in the posterior
+
+  if (runif(1)<prob){
+    newZ       = propZ         # accept the proposal
+    newW1      = propW1 
+    newW2      = propW2
+    newW3      = propW3
+    newWds     = propWds
+    newNoise1  = propNoise1
+    newNoise2  = propNoise2
+    newNoise3  = propNoise3
+    newMeans   = propMeans
+    newOffsets = propOffsets
+    
+  }
+  else{ 
+    newZ       = z.s    # reject the proposal
+    newW1      = W.m1 
+    newW2      = W.m2
+    newW3      = W.m3
+    newWds     = W.ds
+    newNoise1  = sigma2.1
+    newNoise2  = sigma2.2
+    newNoise3  = sigma2.3
+    newMeans   = meanClust
+    newOffsets = mu.ds
+  }
+  
+  return(list(zs = newZ, W1 = newW1, W2 = newW2, W3 = newW3, Wd = newWds, sigma2.1 = newNoise1, sigma2.2 = newNoise2, sigma2.3 = newNoise3, means = newMeans, offsets = newOffsets))  
+  
+} 
