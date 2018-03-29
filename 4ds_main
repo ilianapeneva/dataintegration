@@ -235,7 +235,7 @@ BayesClusternoNLP_onlySA4ds_early_dinit <- function(dataMatrix1, dataMatrix2, da
     clustersWithPoints = which(nClPoints>0, arr.ind = TRUE)
     
     
-    logposterior[i] <- logposterior_BC_DI_4ds(dataMatrix1, dataMatrix2, dataMatrix3, dataMatrix4, nPcomponents, nCategories, z, Cind[,i], clustersWithPoints, W1, W2, W3, W.d, sigma2.1, sigma2.2, sigma2.3, mu.d, C.1, C.2, C.3, length(clustersWithPoints), mean.ppca[clustersWithPoints,],  alpha, nClPoints[clustersWithPoints])
+    logposterior[i] <- logposterior_BC_DI_4(dataMatrix1, dataMatrix2, dataMatrix3, dataMatrix4, nPcomponents, nCategories, z, Cind[,i], clustersWithPoints, W1, W2, W3, W.d, sigma2.1, sigma2.2, sigma2.3, mu.d, C.1, C.2, C.3, length(clustersWithPoints), mean.ppca[clustersWithPoints,],  alpha, nClPoints[clustersWithPoints])
     if (logposterior[i]>= max.logposterior){
       max.logposterior <- logposterior[i]
       max.partition    <- Cind[,i]
