@@ -1,0 +1,72 @@
+#R script to compute the log posterior of the BayesCluster (continuous) model - data integration version for 2 datasets (not using the non-local priors)
+library(mvnfast)
+library(gmp)
+
+# Input: z.s - the latent variables which we cluster
+#        dataMatrix1 - the first dataset
+#        dataMatrix2 - the second dataset 
+#        d1.product = z%*%t(W1)
+#        d2.product = z%*%t(W2)
+#        nPcomponents - number of principal components
+#        mean.ppca - the means of the clusters
+#        Cind - a vector containing the cluster allocation
+#        nClusters - number of clusters of latent variables
+#        W.m1 - the loadings matrix for the first dataset
+#        C.m1 - the covariance matrix for the first dataset
+#        W.m2 - the loadings matrix for the second dataset
+#        C.m2 - the covariance matrix for the second dataset
+#        sigma2.1 - the error for the first dataset
+#        sigma2.2 - the error for the second dataset
+# Output: the posterior of the model
+logposterior_BC_DI_2ds <- function(dataMatrix1, dataMatrix2, nPcomponents, z.s,Cind_i, ClustersWithPoints, W.m1,W.m2, sigma2.1, sigma2.2,C.1, C.2, Nclusters, mean.clust, alpha, nClPoints){
+  nFeatures1   <- ncol(dataMatrix1)
+  nFeatures2   <- ncol(dataMatrix2)
+  nDataItems   <- nrow(dataMatrix1)
+  likelihood    = vector("list",Nclusters)      
+  likelihood1 <- c()
+  likelihood2 <- c()
+  
+  
+  # cluster means 
+  logposterior.1    <- sum(dmvn(mean.clust, rep(0,nPcomponents), sigma = diag(1, nPcomponents), log = TRUE))
+  
+  # latent variables 
+  likelihood     <- lapply(1:Nclusters, function(k) dmvn(z.s[which(Cind_i==ClustersWithPoints[k]),], mean.clust[k,], sigma= diag(1,nPcomponents), log = TRUE))
+  logposterior.2 <- do.call(sum, likelihood)
+  
+  # likelihood (dataset 1)
+  likelihood1    <- sapply(1:nDataItems, function(i) dmvn(dataMatrix1[i,], z.s[i,]%*%t(W.m1) , sigma = sigma2.1*diag(1,nFeatures1), log = TRUE)) 
+  logposterior.3 <- sum(likelihood1)
+  
+  
+  # likelihood (dataset 2)
+  likelihood2    <- sapply(1:nDataItems, function(i) dmvn(dataMatrix2[i,], z.s[i,]%*%t(W.m2), sigma = sigma2.2*diag(1,nFeatures2), log = TRUE))   
+  logposterior.4 <- sum(likelihood2)
+  
+  
+  # cluster indicators
+  log.part          <- c()
+  for (i in 1:Nclusters){
+    log.part[i]     <- log(factorialZ(nClPoints[i]-1 + alpha/Nclusters))
+  }
+  logposterior.5    <- sum(log.part) - Nclusters*lgamma(alpha/Nclusters) + lgamma(alpha) - log(factorialZ(nDataItems-1+alpha)) 
+  
+  # noise (dataset 1)
+  logposterior.6 <- dgamma(sigma2.1, 1,1, log = TRUE)  # scale = shape = 1
+  
+  # loadings (dataset 1) - N(0,I) prior on the columns
+  logposterior.7    <- sum(dmvn(W.m1, rep(0, nPcomponents), sigma = diag(1,nPcomponents), log = TRUE))  
+    
+  # noise (dataset 2)
+  logposterior.8 <- dgamma(sigma2.2, 1,1, log = TRUE) # shape = scale = 1
+  
+  # loadings (dataset 2)
+  logposterior.9    <- sum(dmvn(W.m2, rep(0, nPcomponents), sigma = diag(1,nPcomponents), log = TRUE))       
+ 
+  
+   # all logposterior 
+  logposterior_BC_DI_2   <- logposterior.1 + logposterior.2 + logposterior.3 + logposterior.4 + logposterior.5 + logposterior.6+  logposterior.7 + logposterior.8 + logposterior.9
+  
+  
+  logposterior_BC_DI_2
+}
