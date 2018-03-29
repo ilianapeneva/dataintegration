@@ -1,0 +1,92 @@
+# Simulated annealing for the data integration of 3 continuous datasets
+
+# noise proposal eps1
+proposalNoise1 <- function(noiseSigma21){
+  add.noise <- rnorm(1, mean=0, sd = 0.001)
+  return(add.noise+noiseSigma21)
+  
+}
+
+# noise proposal eps1
+proposalNoise2 <- function(noiseSigma22){
+  add.noise <- rnorm(1, mean=0, sd = 0.001)
+  return(add.noise+noiseSigma22)
+  
+}
+
+
+# noise proposal eps1
+proposalNoise3 <- function(noiseSigma23){
+  add.noise <- rnorm(1, mean=0, sd = 0.001)
+  return(add.noise+noiseSigma23)
+  
+}
+
+# latent variables proposal
+proposalZs <- function(latentvar){
+  random.noise <- rmvn(nrow(latentvar), rep(0,ncol(latentvar)), diag(0.001, ncol(latentvar)))
+  return(latentvar+random.noise)
+}
+
+# getting W from dataMatrix1, and latent z using least squares
+gettingWls <- function(z.mat, dataMatrix){
+  z.prod <- t(z.mat)%*%z.mat
+  z.inv  <- solve(z.prod, tol = 1e-38)
+  
+  # getting the estimate for W
+  W <- t(dataMatrix)%*%z.mat%*%t(z.inv)
+}
+
+
+MH_cont_SA3ds<- function(z.s, current_t, dataMatrix1, dataMatrix2, dataMatrix3,  nPcomponents, Cind_i, ClustersWithPoints, W.m1, W.m2, W.m3,  sigma2.1, sigma2.2, sigma2.3, C.1, C.2, C.3, Nclusters, meanClust, alpha,nClPoints){
+ 
+  propNoise1   <- proposalNoise1(sigma2.1)             # get the proposal  for the noise sigma2.1
+  propNoise2   <- proposalNoise2(sigma2.2)             # get the proposal  for the noise sigma2.2 
+  propNoise3   <- proposalNoise3(sigma2.3)
+  propZ        <- proposalZs(z.s)                      # get the proposals for the latent variables
+  propW1       <- gettingWls(z.s, dataMatrix1)
+  propW2       <- gettingWls(z.s, dataMatrix2)
+  propW3       <- gettingWls(z.s, dataMatrix3)
+  
+  propMeans    <- matrix(data = NA, nrow = Nclusters, ncol = nPcomponents)
+ 
+  
+  for (i in 1:Nclusters){
+    propMeans[i,]   <- colMeans(as.matrix(propZ[which(Cind_i==ClustersWithPoints[i]),]))
+  }
+
+  nFeatures1   <- ncol(dataMatrix1)
+  nFeatures2   <- ncol(dataMatrix2)
+  
+  
+  
+  # the probability of a move
+  prob     = exp((logposterior_BC_DI_3ds(dataMatrix1, dataMatrix2, dataMatrix3, nPcomponents, propZ,Cind_i, ClustersWithPoints, propW1, propW2, propW3,  propNoise1, propNoise2, propNoise3, C.1, C.2, C.3, Nclusters, propMeans, alpha, nClPoints)
+                  -logposterior_BC_DI_3ds(dataMatrix1, dataMatrix2, dataMatrix3, nPcomponents, z.s, Cind_i, ClustersWithPoints, W.m1, W.m2, W.m3,  sigma2.1, sigma2.2, sigma2.3, C.1, C.2, C.3,  Nclusters, meanClust, alpha, nClPoints))/current_t) # change in the posterior
+  #print(prob)
+  if (runif(1)<prob){
+    newZ       = propZ         # accept the proposal
+    newW1      = propW1 
+    newW2      = propW2
+    newW3      = propW3
+    newNoise1  = propNoise1
+    newNoise2  = propNoise2
+    newNoise3  = propNoise3
+    newMeans   = propMeans
+    
+  }
+  else{ 
+    newZ       = z.s    # reject the proposal
+    newW1      = W.m1 
+    newW2      = W.m2
+    newW3      = W.m3
+    newNoise1  = sigma2.1
+    newNoise2  = sigma2.2
+    newNoise3  = sigma2.3
+    newMeans   = meanClust
+    
+  }
+  
+  return(list(zs = newZ, W1 = newW1, W2 = newW2, W3 = newW3, sigma2.1 = newNoise1, sigma2.2 = newNoise2, sigma2.3 = newNoise3, means = newMeans))  
+  
+} 
