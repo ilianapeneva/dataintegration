@@ -1,0 +1,81 @@
+# Simulated annealing for 2 cont datasets
+
+
+# noise proposal eps1
+proposalNoise1 <- function(noiseSigma21){
+  add.noise <- rnorm(1, mean=0, sd = 0.001)
+  return(add.noise+noiseSigma21)
+  
+}
+
+# noise proposal eps1
+proposalNoise2 <- function(noiseSigma22){
+  add.noise <- rnorm(1, mean=0, sd = 0.001)
+  return(add.noise+noiseSigma22)
+  
+}
+
+
+# latent variables proposal
+proposalZs <- function(latentvar){
+  random.noise <- rmvn(nrow(latentvar), rep(0,ncol(latentvar)), diag(0.001, ncol(latentvar)))
+  return(latentvar+random.noise)
+}
+
+# getting W from dataMatrix1, and latent z using least squares
+gettingWls <- function(z.mat, dataMatrix){
+  z.prod <- t(z.mat)%*%z.mat
+  z.inv  <- solve(z.prod, tol = 1e-38)
+  
+  # getting the estimate for W
+  W <- t(dataMatrix)%*%z.mat%*%t(z.inv)
+}
+
+
+MH_cont_SA2ds<- function(z.s, current_t, dataMatrix1, dataMatrix2,  nPcomponents, Cind_i, ClustersWithPoints, W.m1, W.m2,  sigma2.1, sigma2.2, C.1, C.2, Nclusters, meanClust, alpha,nClPoints){
+  
+  #propW1      <- proposalW(W.m)                       # get the proposals for the loadings W
+  propNoise1   <- proposalNoise1(sigma2.1)             # get the proposal  for the noise sigma2.1
+  propNoise2   <- proposalNoise2(sigma2.2)             # get the proposal  for the noise sigma2.2 
+  propZ        <- proposalZs(z.s)                      # get the proposals for the latent variables
+  propW1       <- gettingWls(z.s, dataMatrix1)
+  propW2       <- gettingWls(z.s, dataMatrix2)
+  
+  propMeans    <- matrix(data = NA, nrow = Nclusters, ncol = nPcomponents)
+  #propG      <- proposalG(g)
+  
+  for (i in 1:Nclusters){
+    propMeans[i,]   <- colMeans(as.matrix(propZ[which(Cind_i==ClustersWithPoints[i]),]))
+  }
+  
+  nFeatures1   <- ncol(dataMatrix1)
+  nFeatures2   <- ncol(dataMatrix2)
+  
+  
+  
+  # the probability of a move
+  prob     = exp((logposterior_BC_DI_2(dataMatrix1, dataMatrix2, nPcomponents, propZ,Cind_i, ClustersWithPoints, propW1, propW2,  propNoise1, propNoise2, C.1, C.2, Nclusters, propMeans, alpha, nClPoints)
+                  -logposterior_BC_DI_2(dataMatrix1, dataMatrix2, nPcomponents, z.s, Cind_i, ClustersWithPoints, W.m1, W.m2,  sigma2.1, sigma2.2, C.1, C.2, Nclusters, meanClust, alpha, nClPoints))/current_t) # change in the posterior
+  #print(prob)
+  if (runif(1)<prob){
+    newZ       = propZ         # accept the proposal
+    newW1      = propW1 
+    newW2      = propW2
+    newNoise1  = propNoise1
+    newNoise2  = propNoise2
+    newMeans   = propMeans
+    
+  }
+  else{ 
+    newZ       = z.s    # reject the proposal
+    newW1      = W.m1 
+    newW2      = W.m2
+    newNoise1  = sigma2.1
+    newNoise2  = sigma2.2
+    newMeans   = meanClust
+   
+  }
+  
+  return(list(zs = newZ, W1 = newW1, W2 = newW2, sigma2.1 = newNoise1, sigma2.2 = newNoise2, means = newMeans))  
+  
+} 
