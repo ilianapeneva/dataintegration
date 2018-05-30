@@ -1,0 +1,22 @@
+# update the concentration parameter alpha, following the procedure outlined by Escobar and West (1995)
+
+alpha.sample <- function(alpha.current, a,b, nDataItems, nClusters){
+  eta <- rbeta(1,alpha.current,nDataItems)  # sample eta (Step 1)
+  
+  pi.1 <- a + nClusters + 1 
+  pi.2 <- nDataItems*(b-log(eta))
+  
+  mix.pi <- pi.1/(pi.1+pi.2)  # get the mixing coef (Step 2)
+  mix.prop <- c(mix.pi, 1- mix.pi)
+  
+  a.coef <- c(a+nClusters, a+nClusters-1)
+  b.coef <- c(b-log(eta), b-log(eta))
+  
+  # sample alpha from a mixture of 2 Gamma distributions (Step 3)
+  rmixgamma <- function(n, mix, alpha.coef, beta.coef) {
+        k <- sample.int(length(mix), n, replace = TRUE, prob=mix)
+         rgamma(n, alpha.coef[k], beta.coef[k])
+    }
+  
+  rmixgamma(1,mix.prop, a.coef, b.coef) 
+}
